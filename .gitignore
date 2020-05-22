@@ -1,0 +1,3 @@
+# preventing config file and environment from being uploaded to github 
+config.yml
+/ec2_env
