@@ -1,6 +1,7 @@
 import boto3
 import yaml
 import os
+import botocore
 
 config = yaml.safe_load(open("config.yml"))
  
@@ -19,11 +20,15 @@ session = boto3.Session(
 def create_keypair(name_of_keypair):
 	ec2 = session.resource('ec2', region_name=default_region)
 	key_file = open('%s.pem'%name_of_keypair,'w')
-	key_pair = ec2.create_key_pair(KeyName=name_of_keypair, )
-	key_pair_contents = str(key_pair.key_material)
-	key_file.write(key_pair_contents)
-	os.system('chmod 400 %s.pem'%name_of_keypair)
-
+	try:
+		key = ec2.create_key_pair(KeyName=name_of_keypair)
+		key_pair_contents = str(key.key_material)
+		key_file.write(key_pair_contents)
+		os.system('chmod 400 %s.pem'%name_of_keypair)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		print('Key pair %s.pem sucessfully created'%name_of_keypair)
 
 
 
