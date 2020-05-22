@@ -44,10 +44,9 @@ def create_security_group(description, name):
 
 security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
 
-
 def create_sg_rule(groupid, fromport, protocol, IP_range, description, toport):
 	response = ec2_client.authorize_security_group_ingress(
-    GroupId='groupid',
+    GroupId= groupid,
     #GroupName='string',
     IpPermissions=[
         {
@@ -64,5 +63,5 @@ def create_sg_rule(groupid, fromport, protocol, IP_range, description, toport):
     ],
 )
 
-create_sg_rule(security_group_id, 22, 'tcp', '0.0.0.0/0', 'SSH Access', 22 )
+
 
