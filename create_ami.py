@@ -16,12 +16,15 @@ session = boto3.Session(
 	region_name = default_region
 )
 
+# Creating ec2 resource and client for session
+ec2_resource = session.resource('ec2', region_name=default_region)
+ec2_client = session.client('ec2', region_name=default_region)
+
 # Function to create key pair to be used to launch instance - input = key pair name (minus the .pem), output = keypair.pem with correct permissions. 
 def create_keypair(name_of_keypair):
-	ec2 = session.resource('ec2', region_name=default_region)
 	key_file = open('%s.pem'%name_of_keypair,'w')
 	try:
-		key = ec2.create_key_pair(KeyName=name_of_keypair)
+		key = ec2_resource.create_key_pair(KeyName=name_of_keypair)
 		key_pair_contents = str(key.key_material)
 		key_file.write(key_pair_contents)
 		os.system('chmod 400 %s.pem'%name_of_keypair)
@@ -30,8 +33,36 @@ def create_keypair(name_of_keypair):
 	else:
 		print('Key pair %s.pem sucessfully created'%name_of_keypair)
 
+def create_security_group(description, name):
+	response = ec2_client.create_security_group(
+		Description = description,
+		GroupName = name
+	)
+	
+	sg_id = response['GroupId']
+	return(sg_id)
+
+security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
 
 
+def create_sg_rule(groupid, fromport, protocol, IP_range, description, toport):
+	response = ec2_client.authorize_security_group_ingress(
+    GroupId='groupid',
+    #GroupName='string',
+    IpPermissions=[
+        {
+            'FromPort': fromport,
+            'IpProtocol': protocol,
+            'IpRanges': [
+                {
+                    'CidrIp': IP_range,
+                    'Description': description
+                },
+            ],
+            'ToPort': toport,
+        },
+    ],
+)
 
-
+create_sg_rule(security_group_id, 22, 'tcp', '0.0.0.0/0', 'SSH Access', 22 )
 
