@@ -59,13 +59,19 @@ def create_sg_rule(groupid, ipPermissions):
 	else:
 		print('Security group rule added: %s'%ipPermissions)	
 
-def run_instances(**kwargs):
+def create_instances(**kwargs):
 	try:
 		ec2_client.run_instances(**kwargs)
 	except botocore.exceptions.ClientError as e: 
 		print(e)
 	else:
 		print('Instance started')	
+
+def get_user_data(file_name):
+    f = open(file_name, 'r')
+    user_data = f.read()
+    return user_data
+
 
 # Example rules (SSH access)
 ipPermissions =[
