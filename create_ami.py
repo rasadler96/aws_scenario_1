@@ -32,6 +32,7 @@ def create_keypair(name_of_keypair):
 		print(e)
 	else:
 		print('Key pair %s.pem sucessfully created'%name_of_keypair)
+		return(name_of_keypair)
 
 def create_security_group(description, name):
 	try:
@@ -58,6 +59,14 @@ def create_sg_rule(groupid, ipPermissions):
 	else:
 		print('Security group rule added: %s'%ipPermissions)	
 
+def run_instances(**kwargs):
+	try:
+		ec2_client.run_instances(**kwargs)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		print('Instance started')	
+
 # Example rules (SSH access)
 ipPermissions =[
         {
@@ -73,10 +82,24 @@ ipPermissions =[
         }
     ]
 
-
-#def launch_instance():
-
-security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
-create_sg_rule(security_group_id, ipPermissions)
-
-
+# Example instance details - must be in the form of a dictionary. 
+instance_details = {'BlockDeviceMappings' : [
+    {
+        'DeviceName' : '/dev/sda1',
+        'Ebs': {
+            'DeleteOnTermination': True,
+            'VolumeSize': 8,
+            'VolumeType': 'gp2',
+            'Encrypted': False
+        },
+    },
+],
+'ImageId' : 'ami-0eb89db7593b5d434',
+'InstanceType' : 't2.micro',
+'KeyName' : key_name,
+'MinCount' : 1,
+'MaxCount' : 1,
+'SecurityGroupIds' : [
+    security_group_id,
+],
+'UserData' : bootstrap_script}
