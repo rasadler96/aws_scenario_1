@@ -34,22 +34,29 @@ def create_keypair(name_of_keypair):
 		print('Key pair %s.pem sucessfully created'%name_of_keypair)
 
 def create_security_group(description, name):
-	response = ec2_client.create_security_group(
-		Description = description,
-		GroupName = name
-	)
-	
-	sg_id = response['GroupId']
-	return(sg_id)
-
-security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
+	try:
+		response = ec2_client.create_security_group(
+			Description = description,
+			GroupName = name
+		)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		print('Security group sucessfully created')	
+		sg_id = response['GroupId']
+		return(sg_id)
 
 def create_sg_rule(groupid, ipPermissions):
-	response = ec2_client.authorize_security_group_ingress(
-    GroupId= groupid,
-    #GroupName='string',
-    IpPermissions= ipPermissions
-)
+	try:	
+		response = ec2_client.authorize_security_group_ingress(
+	    GroupId= groupid,
+	    #GroupName='string',
+	    IpPermissions= ipPermissions
+	)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		print('Security group rule added: %s'%ipPermissions)	
 
 # Example rules (SSH access)
 ipPermissions =[
@@ -65,3 +72,11 @@ ipPermissions =[
             'ToPort': 22,
         }
     ]
+
+
+#def launch_instance():
+
+security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
+create_sg_rule(security_group_id, ipPermissions)
+
+
