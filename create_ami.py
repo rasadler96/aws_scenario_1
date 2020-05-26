@@ -61,51 +61,44 @@ def create_sg_rule(groupid, ipPermissions):
 
 def create_instances(**kwargs):
 	try:
-		ec2_client.run_instances(**kwargs)
+		response = ec2_client.run_instances(**kwargs)
 	except botocore.exceptions.ClientError as e: 
 		print(e)
 	else:
-		print('Instance started')	
+		instance_ID = response['Instances'][0]['InstanceId']
+		print('Instance started (%s)'%instance_ID)
+		return instance_ID	
 
 def get_user_data(file_name):
     f = open(file_name, 'r')
     user_data = f.read()
     return user_data
 
+# Meddling about with waiters to check that the instance has stopped at the end of the bootstrap script
 
-# Example rules (SSH access)
-ipPermissions =[
-        {
-            'FromPort': 22,
-            'IpProtocol': 'tcp',
-            'IpRanges': [
-                {
-                    'CidrIp': '0.0.0.0/0',
-                    'Description': 'SSH access',
-                },
-            ],
-            'ToPort': 22,
-        }
-    ]
+waiter1 = ec2_client.get_waiter('instance_running')
+waiter2 = ec2_client.get_waiter('instance_stopped')
 
-# Example instance details - must be in the form of a dictionary. 
-instance_details = {'BlockDeviceMappings' : [
-    {
-        'DeviceName' : '/dev/sda1',
-        'Ebs': {
-            'DeleteOnTermination': True,
-            'VolumeSize': 8,
-            'VolumeType': 'gp2',
-            'Encrypted': False
-        },
-    },
-],
-'ImageId' : 'ami-0eb89db7593b5d434',
-'InstanceType' : 't2.micro',
-'KeyName' : key_name,
-'MinCount' : 1,
-'MaxCount' : 1,
-'SecurityGroupIds' : [
-    security_group_id,
-],
-'UserData' : bootstrap_script}
+
+waiter1.wait(
+    InstanceIds=[
+        instance_id,
+    ],
+    WaiterConfig={
+        'Delay': 10,
+        'MaxAttempts': 1000000000
+    }
+)
+print('instance has started')
+
+waiter2.wait(
+    InstanceIds=[
+        instance_id,
+    ],
+    WaiterConfig={
+        'Delay': 20,
+        'MaxAttempts': 1000000000
+    }
+)
+
+print('instance has stopped')
