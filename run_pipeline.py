@@ -46,7 +46,7 @@ def create_instances(**kwargs):
 	else:
 		instance_ID = response['Instances'][0]['InstanceId']
 		print('Instance created (%s)'%instance_ID)
-		return instance_ID	
+		return instance_ID
 
 # Waiter definition **kwargs must be in the form of a dictionary. 
 def add_waiter(waiter_type, **kwargs):
@@ -58,6 +58,16 @@ def add_waiter(waiter_type, **kwargs):
 	else:
 		print(waiter_type)
 
+# Function to get the public DNS of the instance
+
+def get_DNS(instance_id):
+	try:
+		response = ec2_client.describe_instances(InstanceIds=[instance_id])
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		public_DNS = response['Reservations'][0]['Instances'][0]['PublicDnsName']
+		return public_DNS
 
 # Running script from here (Above are the functions)
 
@@ -83,8 +93,10 @@ instance_details = {'BlockDeviceMappings' : [
 ]}
 
 
+# Checking AMI state
 state = image_state('ami-01dcf48509ea3e1ff') 
 
+# Making sure that the AMI is available (okay) before launching an instance and running the pipeline. 
 if state == 'available':
 	print('AMI is available')
 	instance_id = create_instances(**instance_details)
@@ -96,7 +108,11 @@ if state == 'available':
     'MaxAttempts': 100
 }}
 	add_waiter('instance_running', **waiter_run)
-	print('complete test')
+	
+	# Getting public DNS name
+	public_DNS = get_DNS(instance_id)
+	
+
 
 else:
 	print('There is a problem with the selected AMI - state is "' + str(state) + '"')

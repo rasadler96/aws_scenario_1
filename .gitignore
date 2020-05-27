@@ -2,3 +2,4 @@
 *.yml
 /ec2_env
 *.pem
+/fastq_files
