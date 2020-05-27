@@ -112,5 +112,83 @@ def clean_up(instanceID, keypairName, sgID, amiID):
 		yaml.dump(data, config_file)
 		print('ec2_config file created')
 
+# Test run - create ami 
+ipPermissions =[
+        {
+            'FromPort': 22,
+            'IpProtocol': 'tcp',
+            'IpRanges': [
+                {
+                    'CidrIp': '0.0.0.0/0',
+                    'Description': 'SSH access',
+                },
+            ],
+            'ToPort': 22,
+        }
+    ]
+
+key_name = create_keypair('test_key')
+security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
+create_sg_rule(security_group_id, ipPermissions)
+bootstrap_script = get_user_data('test_bootstrap.sh')
+
+# Example instance details - must be in the form of a dictionary. 
+instance_details = {'BlockDeviceMappings' : [
+    {
+        'DeviceName' : '/dev/sda1',
+        'Ebs': {
+            'DeleteOnTermination': True,
+            'VolumeSize': 8,
+            'VolumeType': 'gp2',
+            'Encrypted': False
+        },
+    },
+],
+'ImageId' : 'ami-0eb89db7593b5d434',
+'InstanceType' : 't2.micro',
+'KeyName' : key_name,
+'MinCount' : 1,
+'MaxCount' : 1,
+'SecurityGroupIds' : [
+    security_group_id,
+],
+'UserData' : bootstrap_script}
+
+instance_id = create_instances(**instance_details)
+
+# Separate details may be needed for each but for this the same can be reused. 
+waiter_details = {'InstanceIds' : [
+    instance_id,
+],
+'WaiterConfig' : {
+    'Delay': 20,
+    'MaxAttempts': 100
+}}
+
+# Don't forget to add ** infront of kwargs argument! 
+add_waiter('instance_running', **waiter_details)
+
+add_waiter('instance_stopped', **waiter_details)
+
+ami_details = {
+'BlockDeviceMappings' : [
+    {
+        'DeviceName': '/dev/sda1',
+        'Ebs': {
+            'DeleteOnTermination': True,
+            'VolumeSize': 8,
+            'VolumeType': 'gp2',
+        },
+    },
+],
+'Description': 'Test_AMI',
+'InstanceId' : instance_id,
+'Name' : 'Test_AMI',
+}
+
+ami_id = create_ami(**ami_details)
+
+clean_up(instance_id, key_name, security_group_id, ami_id)
+
 
 
