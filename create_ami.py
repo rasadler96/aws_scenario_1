@@ -112,7 +112,15 @@ def clean_up(instanceID, keypairName, sgID, amiID):
 		yaml.dump(data, config_file)
 		print('ec2_config file created')
 
-# Test run - create ami 
+# Creating AMI to run pipeline 
+
+# Create ec2 kwy pair
+key_name = create_keypair('ec2_key')
+
+# Create EC2 security group
+security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
+
+# Defining a security group rule - this allows SSH access to the instance 
 ipPermissions =[
         {
             'FromPort': 22,
@@ -127,25 +135,26 @@ ipPermissions =[
         }
     ]
 
-key_name = create_keypair('test_key')
-security_group_id = create_security_group('Security group for EC2 Scenario 1', 'EC2 group')
+# Adding rule to the security group 
 create_sg_rule(security_group_id, ipPermissions)
-bootstrap_script = get_user_data('test_bootstrap.sh')
 
-# Example instance details - must be in the form of a dictionary. 
+# Pulling the bootstrap script into a string to pass to the make instance function. 
+bootstrap_script = get_user_data('bash_script.sh')
+
+# Creating variable with all the instance details - must be in the form of a dictionary. AMI_ID used is the official Ubuntu ami
 instance_details = {'BlockDeviceMappings' : [
     {
         'DeviceName' : '/dev/sda1',
         'Ebs': {
             'DeleteOnTermination': True,
-            'VolumeSize': 8,
+            'VolumeSize': 15,
             'VolumeType': 'gp2',
             'Encrypted': False
         },
     },
 ],
 'ImageId' : 'ami-0eb89db7593b5d434',
-'InstanceType' : 't2.micro',
+'InstanceType' : 't2.2xlarge',
 'KeyName' : key_name,
 'MinCount' : 1,
 'MaxCount' : 1,
@@ -154,10 +163,12 @@ instance_details = {'BlockDeviceMappings' : [
 ],
 'UserData' : bootstrap_script}
 
+# Creating instance
 instance_id = create_instances(**instance_details)
 
-# Separate details may be needed for each but for this the same can be reused. 
-waiter_details = {'InstanceIds' : [
+# Specifying waiter details - longer delay (10 minutes) for the stopping waiter compared to the running(20 seconds)
+
+waiter_run = {'InstanceIds' : [
     instance_id,
 ],
 'WaiterConfig' : {
@@ -165,10 +176,18 @@ waiter_details = {'InstanceIds' : [
     'MaxAttempts': 100
 }}
 
-# Don't forget to add ** infront of kwargs argument! 
-add_waiter('instance_running', **waiter_details)
+waiter_stop = {'InstanceIds' : [
+    instance_id,
+],
+'WaiterConfig' : {
+    'Delay': 600,
+    'MaxAttempts': 100
+}}
 
-add_waiter('instance_stopped', **waiter_details)
+# Don't forget to add ** infront of kwargs argument! 
+add_waiter('instance_running', **waiter_run)
+
+add_waiter('instance_stopped', **waiter_stop)
 
 ami_details = {
 'BlockDeviceMappings' : [
@@ -176,7 +195,7 @@ ami_details = {
         'DeviceName': '/dev/sda1',
         'Ebs': {
             'DeleteOnTermination': True,
-            'VolumeSize': 8,
+            'VolumeSize': 15,
             'VolumeType': 'gp2',
         },
     },
