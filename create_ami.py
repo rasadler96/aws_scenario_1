@@ -3,8 +3,9 @@ import yaml
 import os
 import botocore
 
-config = yaml.safe_load(open("config.yml"))
-amazon_details = config['amazon']
+amazon_config = yaml.safe_load(open("config.yml"))
+
+amazon_details = amazon_config['amazon']
  
 access_key = amazon_details['aws_access_key_id']
 secret_key = amazon_details['aws_secret_access_key']
@@ -75,6 +76,7 @@ def get_user_data(file_name):
     user_data = f.read()
     return user_data
 
+# Waiter definition **kwargs must be in the form of a dictionary. 
 def add_waiter(waiter_type, **kwargs):
 	try:
 		waiter = ec2_client.get_waiter(waiter_type)
@@ -84,6 +86,7 @@ def add_waiter(waiter_type, **kwargs):
 	else:
 		print(waiter_type)
 
+# Create AMI function **kwargs must be in the form of a dictionary. 
 def create_ami(**kwargs):
 	try:
 		response = ec2_client.create_image(**kwargs)
@@ -94,9 +97,20 @@ def create_ami(**kwargs):
 		print('AMI created: %s'%ami_ID)
 		return ami_ID
 
-#need to deactivate initial instance afterwards 
-
-
+# clean up function that terminates the instance and puts the required ec2 values (key pair name, security group ID and AMI id) into a ec2 config file
+def clean_up(instanceID, keypairName, sgID, amiID):
+	try:
+		ec2_resource.instances.filter(InstanceIds=[instanceID]).terminate()
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else: 
+		print('Instance %s terminated'%instanceID)
+		#config here 
+		key_pair = '%s.pem'%keypairName
+		data = {'ec2_information': {'keypair_name': str(key_pair), 'security_group_ID': str(sgID), 'ami_ID' : str(amiID)}}
+		config_file = open('ec2_config.yml', 'w')
+		yaml.dump(data, config_file)
+		print('ec2_config file created')
 
 
 
