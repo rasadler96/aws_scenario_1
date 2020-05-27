@@ -2,3 +2,4 @@
 config.yml
 /ec2_env
 *.pem
+prac_script.py

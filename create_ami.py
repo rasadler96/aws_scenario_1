@@ -4,10 +4,11 @@ import os
 import botocore
 
 config = yaml.safe_load(open("config.yml"))
+amazon_details = config['amazon']
  
-access_key = config['aws_access_key_id']
-secret_key = config['aws_secret_access_key']
-default_region = config['aws_default_region']
+access_key = amazon_details['aws_access_key_id']
+secret_key = amazon_details['aws_secret_access_key']
+default_region = amazon_details['aws_default_region']
 
 # Creating session (configures credentials and default region)
 session = boto3.Session(
@@ -82,5 +83,20 @@ def add_waiter(waiter_type, **kwargs):
 		print(e)
 	else:
 		print(waiter_type)
+
+def create_ami(**kwargs):
+	try:
+		response = ec2_client.create_image(**kwargs)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		ami_ID = response['ImageId'] 
+		print('AMI created: %s'%ami_ID)
+		return ami_ID
+
+#need to deactivate initial instance afterwards 
+
+
+
 
 
