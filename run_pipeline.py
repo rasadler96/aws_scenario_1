@@ -36,7 +36,7 @@ def image_state(amiID):
 		print(e)
 	else: 
 		state = response['Images'][0]['State']
-		print(state)
+		return state
 
 def create_instances(**kwargs):
 	try:
@@ -61,11 +61,43 @@ def add_waiter(waiter_type, **kwargs):
 
 # Running script from here (Above are the functions)
 
-image_state(ami_id)
+# Defining variables for instance
+instance_details = {'BlockDeviceMappings' : [
+    {
+        'DeviceName' : '/dev/sda1',
+        'Ebs': {
+            'DeleteOnTermination': True,
+            'VolumeSize': 15,
+            'VolumeType': 'gp2',
+            'Encrypted': False
+        },
+    },
+],
+'ImageId' : ami_id,
+'InstanceType' : 't2.micro',
+'KeyName' : keypair_name,
+'MinCount' : 1,
+'MaxCount' : 1,
+'SecurityGroupIds' : [
+    security_group_id,
+]}
+
+
+state = image_state('ami-01dcf48509ea3e1ff') 
 
 if state == 'available':
 	print('AMI is available')
+	instance_id = create_instances(**instance_details)
+	waiter_run = {'InstanceIds' : [
+    instance_id,
+],
+'WaiterConfig' : {
+    'Delay': 20,
+    'MaxAttempts': 100
+}}
+	add_waiter('instance_running', **waiter_run)
+	print('complete test')
 
 else:
-	print('There is a problem with the selected AMI - state is "' + state + '"')
+	print('There is a problem with the selected AMI - state is "' + str(state) + '"')
 
