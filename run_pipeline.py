@@ -38,6 +38,29 @@ def image_state(amiID):
 		state = response['Images'][0]['State']
 		print(state)
 
+def create_instances(**kwargs):
+	try:
+		response = ec2_client.run_instances(**kwargs)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		instance_ID = response['Instances'][0]['InstanceId']
+		print('Instance created (%s)'%instance_ID)
+		return instance_ID	
+
+# Waiter definition **kwargs must be in the form of a dictionary. 
+def add_waiter(waiter_type, **kwargs):
+	try:
+		waiter = ec2_client.get_waiter(waiter_type)
+		waiter.wait(**kwargs)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		print(waiter_type)
+
+
+# Running script from here (Above are the functions)
+
 image_state(ami_id)
 
 if state == 'available':
