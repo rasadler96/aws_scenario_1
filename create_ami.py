@@ -106,8 +106,7 @@ def clean_up(instanceID, keypairName, sgID, amiID):
 	else: 
 		print('Instance %s terminated'%instanceID)
 		#config here 
-		key_pair = '%s.pem'%keypairName
-		data = {'ec2_information': {'keypair_name': str(key_pair), 'security_group_ID': str(sgID), 'ami_ID' : str(amiID)}}
+		data = {'ec2_information': {'keypair_name': str(keypairName), 'security_group_ID': str(sgID), 'ami_ID' : str(amiID)}}
 		config_file = open('ec2_config.yml', 'w')
 		yaml.dump(data, config_file)
 		print('ec2_config file created')
