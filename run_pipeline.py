@@ -1,6 +1,7 @@
 import boto3 
 import yaml
 import botocore
+import os
 
 # Config for credentials and ec2 information
 amazon_config = yaml.safe_load(open("config.yml"))
@@ -112,7 +113,6 @@ if state == 'available':
 	# Getting public DNS name
 	public_DNS = get_DNS(instance_id)
 	
-
 
 else:
 	print('There is a problem with the selected AMI - state is "' + str(state) + '"')
