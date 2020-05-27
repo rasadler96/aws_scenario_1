@@ -28,3 +28,21 @@ session = boto3.Session(
 ec2_resource = session.resource('ec2', region_name=default_region)
 ec2_client = session.client('ec2', region_name=default_region)
 
+# Function to check the state of the ami image. 
+def image_state(amiID):
+	try: 
+		response = ec2_client.describe_images(ImageIds=[amiID])
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else: 
+		state = response['Images'][0]['State']
+		print(state)
+
+image_state(ami_id)
+
+if state == 'available':
+	print('AMI is available')
+
+else:
+	print('There is a problem with the selected AMI - state is "' + state + '"')
+
