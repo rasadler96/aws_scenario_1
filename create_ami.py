@@ -66,7 +66,7 @@ def create_instances(**kwargs):
 		print(e)
 	else:
 		instance_ID = response['Instances'][0]['InstanceId']
-		print('Instance started (%s)'%instance_ID)
+		print('Instance created (%s)'%instance_ID)
 		return instance_ID	
 
 def get_user_data(file_name):
@@ -74,31 +74,13 @@ def get_user_data(file_name):
     user_data = f.read()
     return user_data
 
-# Meddling about with waiters to check that the instance has stopped at the end of the bootstrap script
+def add_waiter(waiter_type, **kwargs):
+	try:
+		waiter = ec2_client.get_waiter(waiter_type)
+		waiter.wait(**kwargs)
+	except botocore.exceptions.ClientError as e: 
+		print(e)
+	else:
+		print(waiter_type)
 
-waiter1 = ec2_client.get_waiter('instance_running')
-waiter2 = ec2_client.get_waiter('instance_stopped')
 
-
-waiter1.wait(
-    InstanceIds=[
-        instance_id,
-    ],
-    WaiterConfig={
-        'Delay': 10,
-        'MaxAttempts': 1000000000
-    }
-)
-print('instance has started')
-
-waiter2.wait(
-    InstanceIds=[
-        instance_id,
-    ],
-    WaiterConfig={
-        'Delay': 20,
-        'MaxAttempts': 1000000000
-    }
-)
-
-print('instance has stopped')
