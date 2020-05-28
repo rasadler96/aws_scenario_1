@@ -29,6 +29,9 @@ session = boto3.Session(
 ec2_resource = session.resource('ec2', region_name=default_region)
 ec2_client = session.client('ec2', region_name=default_region)
 
+# Creating IAM client for session
+iam_client = boto3.client('iam')
+
 # Function to check the state of the ami image. 
 def image_state(amiID):
 	try: 
@@ -70,7 +73,24 @@ def get_DNS(instance_id):
 		public_DNS = response['Reservations'][0]['Instances'][0]['PublicDnsName']
 		return public_DNS
 
+def create_iam_role(**kwargs):
+	try:
+		response = iam_client.create_role(**kwargs)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('IAM role created')
+
 # Running script from here (Above are the functions)
+
+# Creating an IAM role for EC2 to access S3 
+
+role_details = {
+'RoleName':'EC2_S3_Access',
+AssumeRolePolicyDocument='string',
+'Description':'Role to give EC2 access to S3',
+'MaxSessionDuration' : 123,
+
 
 # Defining variables for instance
 instance_details = {'BlockDeviceMappings' : [
