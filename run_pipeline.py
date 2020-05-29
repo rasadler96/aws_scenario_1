@@ -2,6 +2,7 @@ import boto3
 import yaml
 import botocore
 import os
+import json
 
 # Config for credentials and ec2 information
 amazon_config = yaml.safe_load(open("config.yml"))
@@ -30,7 +31,7 @@ ec2_resource = session.resource('ec2', region_name=default_region)
 ec2_client = session.client('ec2', region_name=default_region)
 
 # Creating IAM client for session
-iam_client = boto3.client('iam')
+iam_client = session.client('iam')
 
 # Function to check the state of the ami image. 
 def image_state(amiID):
@@ -79,17 +80,47 @@ def create_iam_role(**kwargs):
 	except botocore.exceptions.ClientError as e:
 		print(e)
 	else:
+		role_name = response['Role']['RoleName']
 		print('IAM role created')
+		return role_name
+
+def add_policy(policy_arn, role_name):
+	try:
+		iam_client.attach_role_policy(
+    	PolicyArn=policy_arn,
+    	RoleName=role_name
+		)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('%s policy added to %s' %(policy_arn, role_name))
 
 # Running script from here (Above are the functions)
 
 # Creating an IAM role for EC2 to access S3 
 
+ec2_role_access = {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+
 role_details = {
 'RoleName':'EC2_S3_Access',
-AssumeRolePolicyDocument='string',
+'AssumeRolePolicyDocument' : json.dumps(ec2_role_access),
 'Description':'Role to give EC2 access to S3',
-'MaxSessionDuration' : 123,
+'MaxSessionDuration' : 43200}
+
+role_name = create_iam_role(**role_details)
+add_policy('arn:aws:iam::aws:policy/AmazonS3FullAccess', role_name)
 
 
 # Defining variables for instance
@@ -135,5 +166,5 @@ if state == 'available':
 	
 
 else:
-	print('There is a problem with the selected AMI - state is "' + str(state) + '"')
+	print('There is a problem with the selected AMI - state is "' + str(state) + '"') 
 
