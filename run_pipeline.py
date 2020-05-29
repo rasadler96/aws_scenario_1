@@ -95,10 +95,32 @@ def add_policy(policy_arn, role_name):
 	else:
 		print('%s policy added to %s' %(policy_arn, role_name))
 
+def create_instance_profile(instance_profile_name):
+	try:
+		iam_client.create_instance_profile(
+			InstanceProfileName = instance_profile_name
+		)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('Instance profile %s created'%instance_profile_name)
+
+def add_role_to_instance_profile(instance_profile_name, role_name):
+	try:
+		iam_client.add_role_to_instance_profile(
+			InstanceProfileName= instance_profile_name,
+			RoleName= role_name
+		)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('Role added to instance profile')
+
 # Running script from here (Above are the functions)
 
 # Creating an IAM role for EC2 to access S3 
 
+# First need to create a trust permission (giving EC2 to ability to take on the role created)
 ec2_role_access = {
   "Version": "2012-10-17",
   "Statement": [
@@ -113,16 +135,28 @@ ec2_role_access = {
   ]
 }
 
+# Defining role details 
 role_details = {
 'RoleName':'EC2_S3_Access',
 'AssumeRolePolicyDocument' : json.dumps(ec2_role_access),
 'Description':'Role to give EC2 access to S3',
 'MaxSessionDuration' : 43200}
 
+# Creating the role 
 role_name = create_iam_role(**role_details)
+
+# Adding the S3 full access policy (EC2 can fully access S3)
 add_policy('arn:aws:iam::aws:policy/AmazonS3FullAccess', role_name)
 
 
+# Create instance profile and add role
+
+create_instance_profile(role_name)
+add_role_to_instance_profile(role_name, role_name)
+
+
+
+'''
 # Defining variables for instance
 instance_details = {'BlockDeviceMappings' : [
     {
@@ -166,5 +200,5 @@ if state == 'available':
 	
 
 else:
-	print('There is a problem with the selected AMI - state is "' + str(state) + '"') 
+	print('There is a problem with the selected AMI - state is "' + str(state) + '"') '''
 
