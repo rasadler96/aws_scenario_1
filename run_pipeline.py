@@ -1,8 +1,10 @@
 import boto3 
-import yaml
-import botocore
-import os
-import json
+import yaml 
+import botocore 
+import os 
+import json 
+import paramiko
+import time
 
 # Config for credentials and ec2 information
 amazon_config = yaml.safe_load(open("config.yml"))
@@ -65,13 +67,13 @@ def add_waiter(waiter_type, **kwargs):
 
 # Function to get the public DNS of the instance
 
-def get_DNS(instance_id):
+def get_public_ip(instance_id):
 	try:
 		response = ec2_client.describe_instances(InstanceIds=[instance_id])
 	except botocore.exceptions.ClientError as e: 
 		print(e)
 	else:
-		public_DNS = response['Reservations'][0]['Instances'][0]['PublicDnsName']
+		public_DNS = response['Reservations'][0]['Instances'][0]['PublicIpAddress']
 		return public_DNS
 
 def create_iam_role(**kwargs):
@@ -121,7 +123,7 @@ def add_role_to_instance_profile(instance_profile_name, role_name):
 # Creating an IAM role for EC2 to access S3 
 
 # First need to create a trust permission (giving EC2 to ability to take on the role created)
-ec2_role_access = {
+'''ec2_role_access = {
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -149,14 +151,12 @@ role_name = create_iam_role(**role_details)
 add_policy('arn:aws:iam::aws:policy/AmazonS3FullAccess', role_name)
 
 
-# Create instance profile and add role
+# Create instance profile and add role (There is a delay with this so for testing I have created role and instance profile once and haed coded the name for creating instance (so I can test the remaining part without having to keep deleting the roles etc... Maybe in future move this step to when ami is created))
 
 create_instance_profile(role_name)
-add_role_to_instance_profile(role_name, role_name)
+add_role_to_instance_profile(role_name, role_name)'''
 
 
-
-'''
 # Defining variables for instance
 instance_details = {'BlockDeviceMappings' : [
     {
@@ -176,7 +176,10 @@ instance_details = {'BlockDeviceMappings' : [
 'MaxCount' : 1,
 'SecurityGroupIds' : [
     security_group_id,
-]}
+],
+'IamInstanceProfile': {
+	'Name' : 'EC2_S3_Access',
+}}
 
 
 # Checking AMI state
@@ -196,9 +199,37 @@ if state == 'available':
 	add_waiter('instance_running', **waiter_run)
 	
 	# Getting public DNS name
-	public_DNS = get_DNS(instance_id)
+	public_ip = get_public_ip(instance_id)
+
+	# Need to ensure that checks are done (can add a waiter for this)
+	time.sleep(120)
+
+	key = paramiko.RSAKey.from_private_key_file('%s.pem'%keypair_name)
+
+	ssh = paramiko.SSHClient()
+
+	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 	
+	ssh.connect(hostname=public_ip, username="ubuntu", pkey=key)
+
+	stdin, stdout, stderr = ssh.exec_command('sudo aws s3 sync s3://giab-fastq-files /home/ubuntu/aws-ec2-pipeline/run-directory')
+	exit_status = stdout.channel.recv_exit_status()  
+
+	if exit_status == 0:
+		print("Fastq files pulled into run-directory")
+	else:
+		print("Error", exit_status)
+
+	stdin, stdout, stderr = ssh.exec_command('cd /home/ubuntu/aws-ec2-pipeline ; sudo virtualenv -p python3 pipeline_env ; source pipeline_env/bin/activate ; python aws-pipeline.py --input /home/ubuntu/aws-ec2-pipeline/run_directory/ -j 2 --verbose 5')
+	exit_status = stdout.channel.recv_exit_status()  
+	
+	if exit_status == 0:
+		print("Processes done?")
+	else:
+		print("Error", exit_status)
+
+	ssh.close()
 
 else:
-	print('There is a problem with the selected AMI - state is "' + str(state) + '"') '''
+	print('There is a problem with the selected AMI - state is "' + str(state) + '"') 
 
