@@ -22,6 +22,13 @@ cd aws-ec2-pipeline
 mkdir run-directory reference
 mv FH.bed reference 
 
+# Creating virtual environment
+
+virtualenv -p python3 pipeline_env
+source pipeline_env/bin/activate
+pip install -r aws-requirements.txt
+deactivate 
+
 # Sorting out reference sequence
 cd reference
 
