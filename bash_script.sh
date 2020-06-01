@@ -4,7 +4,7 @@
 
 apt-get update
 
-apt install -y wget gcc libssl-dev make unzip openjdk-8-jdk git-all bwa samtools awscli virtualenv mysql-client mysql-server python3-dev
+apt install -y wget gcc libssl-dev make unzip openjdk-8-jdk git-all bwa samtools awscli virtualenv python3.6-dev default-libmysqlclient-dev mysql-server
 
 cd /opt 
 mkdir software 
