@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # installing the required packages  
 
@@ -24,10 +24,8 @@ mv FH.bed reference
 
 # Creating virtual environment
 
-virtualenv -p python3 pipeline_env
-source pipeline_env/bin/activate
-pip install -r aws-requirements.txt
-deactivate 
+virtualenv -q -p python3 pipeline_env
+pipeline_env/bin/pip install -r aws-requirements.txt
 
 # Sorting out reference sequence
 cd reference
