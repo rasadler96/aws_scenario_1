@@ -2,6 +2,7 @@ import boto3
 import yaml
 import os
 import botocore
+import json
 
 amazon_config = yaml.safe_load(open("config.yml"))
 
@@ -289,6 +290,11 @@ add_policy('arn:aws:iam::aws:policy/AmazonS3FullAccess', role_name)
 
 create_instance_profile(role_name)
 add_role_to_instance_profile(role_name, role_name)
+
+key_name = 'ec2_key'
+instance_id = 'i-05e049852abd0c9ce'
+security_group_id = 'sg-0aab946199d05c047'
+ami_id = 'ami-01ecba4e969e78c0b'
 
 clean_up(instance_id, key_name, security_group_id, ami_id, role_name)
 
