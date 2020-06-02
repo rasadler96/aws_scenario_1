@@ -249,9 +249,9 @@ ami_details = {
         },
     },
 ],
-'Description': 'Test_AMI',
+'Description': 'Ec2 AMI',
 'InstanceId' : instance_id,
-'Name' : 'Test_AMI',
+'Name' : 'EC2_AMI',
 }
 
 ami_id = create_ami(**ami_details)
