@@ -20,6 +20,7 @@ ec2_details = ec2_config['ec2_information']
 ami_id = ec2_details['ami_ID']
 keypair_name = ec2_details['keypair_name']
 security_group_id = ec2_details['security_group_ID']
+role_name = ec2_details['iam_role_name']
 
 # Creating session (configures credentials and default region)
 session = boto3.Session(
@@ -31,9 +32,6 @@ session = boto3.Session(
 # Creating ec2 resource and client for session
 ec2_resource = session.resource('ec2', region_name=default_region)
 ec2_client = session.client('ec2', region_name=default_region)
-
-# Creating IAM client for session
-iam_client = session.client('iam')
 
 # Function to check the state of the ami image. 
 def image_state(amiID):
@@ -76,86 +74,8 @@ def get_public_ip(instance_id):
 		public_DNS = response['Reservations'][0]['Instances'][0]['PublicIpAddress']
 		return public_DNS
 
-def create_iam_role(**kwargs):
-	try:
-		response = iam_client.create_role(**kwargs)
-	except botocore.exceptions.ClientError as e:
-		print(e)
-	else:
-		role_name = response['Role']['RoleName']
-		print('IAM role created')
-		return role_name
-
-def add_policy(policy_arn, role_name):
-	try:
-		iam_client.attach_role_policy(
-    	PolicyArn=policy_arn,
-    	RoleName=role_name
-		)
-	except botocore.exceptions.ClientError as e:
-		print(e)
-	else:
-		print('%s policy added to %s' %(policy_arn, role_name))
-
-def create_instance_profile(instance_profile_name):
-	try:
-		iam_client.create_instance_profile(
-			InstanceProfileName = instance_profile_name
-		)
-	except botocore.exceptions.ClientError as e:
-		print(e)
-	else:
-		print('Instance profile %s created'%instance_profile_name)
-
-def add_role_to_instance_profile(instance_profile_name, role_name):
-	try:
-		iam_client.add_role_to_instance_profile(
-			InstanceProfileName= instance_profile_name,
-			RoleName= role_name
-		)
-	except botocore.exceptions.ClientError as e:
-		print(e)
-	else:
-		print('Role added to instance profile')
 
 # Running script from here (Above are the functions)
-
-# Creating an IAM role for EC2 to access S3 
-
-# First need to create a trust permission (giving EC2 to ability to take on the role created)
-'''ec2_role_access = {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "",
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-
-# Defining role details 
-role_details = {
-'RoleName':'EC2_S3_Access',
-'AssumeRolePolicyDocument' : json.dumps(ec2_role_access),
-'Description':'Role to give EC2 access to S3',
-'MaxSessionDuration' : 43200}
-
-# Creating the role 
-role_name = create_iam_role(**role_details)
-
-# Adding the S3 full access policy (EC2 can fully access S3)
-add_policy('arn:aws:iam::aws:policy/AmazonS3FullAccess', role_name)
-
-
-# Create instance profile and add role (There is a delay with this so for testing I have created role and instance profile once and haed coded the name for creating instance (so I can test the remaining part without having to keep deleting the roles etc... Maybe in future move this step to when ami is created))
-
-create_instance_profile(role_name)
-add_role_to_instance_profile(role_name, role_name)'''
-
 
 # Defining variables for instance
 instance_details = {'BlockDeviceMappings' : [
@@ -170,7 +90,7 @@ instance_details = {'BlockDeviceMappings' : [
     },
 ],
 'ImageId' : ami_id,
-'InstanceType' : 't2.micro',
+'InstanceType' : 't2.2xlarge',
 'KeyName' : keypair_name,
 'MinCount' : 1,
 'MaxCount' : 1,
@@ -178,12 +98,12 @@ instance_details = {'BlockDeviceMappings' : [
     security_group_id,
 ],
 'IamInstanceProfile': {
-	'Name' : 'EC2_S3_Access',
+	'Name' : role_name,
 }}
 
 
 # Checking AMI state
-state = image_state('ami-01dcf48509ea3e1ff') 
+state = image_state(ami_id) 
 
 # Making sure that the AMI is available (okay) before launching an instance and running the pipeline. 
 if state == 'available':
@@ -202,33 +122,48 @@ if state == 'available':
 	public_ip = get_public_ip(instance_id)
 
 	# Need to ensure that checks are done (can add a waiter for this)
-	time.sleep(120)
+	waiter_status_ok = {'InstanceIds' : [
+    instance_id,
+],
+'WaiterConfig' : {
+    'Delay': 20,
+    'MaxAttempts': 100
+}}
+	add_waiter('instance_status_ok', **waiter_status_ok)
 
 	key = paramiko.RSAKey.from_private_key_file('%s.pem'%keypair_name)
 
 	ssh = paramiko.SSHClient()
 
 	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+	print('SSH into instance')
 	
 	ssh.connect(hostname=public_ip, username="ubuntu", pkey=key)
 
-	stdin, stdout, stderr = ssh.exec_command('sudo aws s3 sync s3://giab-fastq-files /home/ubuntu/aws-ec2-pipeline/run-directory')
-	exit_status = stdout.channel.recv_exit_status()  
+	# command list
+	commands = [
+		"sudo aws s3 sync s3://giab-fastq-files /home/ubuntu/aws-ec2-pipeline/run-directory",
+		"cd aws-ec2-pipeline ; sudo /home/ubuntu/aws-ec2-pipeline/pipeline_env/bin/python aws-pipeline.py --input /home/ubuntu/aws-ec2-pipeline/run-directory/ -j 2 --verbose 5",
+		"aws s3 sync ~/aws-ec2-pipeline/run-directory/ s3://pipeline-output-files/ --exclude='*.fastq.gz'",
+	]
 
-	if exit_status == 0:
-		print("Fastq files pulled into run-directory")
-	else:
-		print("Error", exit_status)
-
-	stdin, stdout, stderr = ssh.exec_command('cd /home/ubuntu/aws-ec2-pipeline ; sudo virtualenv -p python3 pipeline_env ; source pipeline_env/bin/activate ; python aws-pipeline.py --input /home/ubuntu/aws-ec2-pipeline/run_directory/ -j 2 --verbose 5')
-	exit_status = stdout.channel.recv_exit_status()  
-	
-	if exit_status == 0:
-		print("Processes done?")
-	else:
-		print("Error", exit_status)
+	# executing list of commands within server
+	print("Starting execution")
+	for command in commands:
+		print("Executing command: " + command)
+		stdin , stdout, stderr = ssh.exec_command(command)
+		exit_status = stdout.channel.recv_exit_status()  
+		if exit_status == 0:
+			print(stdout.readlines())
+			print(stderr.readlines())
+		else:
+			print("Error", exit_status)
+			print('Command failed to execute: ' + command)
 
 	ssh.close()
+
+	print('Pipeline run and files transferred to pipeline-output-files S3 bucket')
 
 else:
 	print('There is a problem with the selected AMI - state is "' + str(state) + '"') 
