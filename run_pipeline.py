@@ -74,6 +74,13 @@ def get_public_ip(instance_id):
 		public_DNS = response['Reservations'][0]['Instances'][0]['PublicIpAddress']
 		return public_DNS
 
+def terminate_instance(instanceID):
+	try:
+		ec2_resource.instances.filter(InstanceIds=[instanceID]).terminate()
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('Instance terminated')
 
 # Running script from here (Above are the functions)
 
@@ -167,4 +174,6 @@ if state == 'available':
 
 else:
 	print('There is a problem with the selected AMI - state is "' + str(state) + '"') 
+
+terminate_instance(instance_id)
 
