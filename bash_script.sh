@@ -4,7 +4,7 @@
 
 apt-get update
 
-apt install -y wget gcc libssl-dev make unzip openjdk-8-jdk git-all bwa samtools awscli virtualenv python3.6-dev default-libmysqlclient-dev mysql-server
+apt install -y curl wget gcc libssl-dev make unzip openjdk-8-jdk git-all bwa samtools virtualenv python3.6-dev default-libmysqlclient-dev mysql-server
 
 cd /opt 
 mkdir software 
@@ -14,6 +14,11 @@ cd software
 wget https://github.com/broadinstitute/gatk/releases/download/4.1.6.0/gatk-4.1.6.0.zip
 unzip gatk-4.1.6.0.zip
 rm -r gatk-4.1.6.0.zip
+
+# Installing aws-cli
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
 
 # Pulling the code into the instance 
 cd /home/ubuntu
