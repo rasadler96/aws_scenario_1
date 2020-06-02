@@ -97,8 +97,54 @@ def create_ami(**kwargs):
 		print('AMI created: %s'%ami_ID)
 		return ami_ID
 
+# Create IAM role
+def create_iam_role(**kwargs):
+	try:
+		response = iam_client.create_role(**kwargs)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		role_name = response['Role']['RoleName']
+		print('IAM role created')
+		return role_name
+
+# Add policy to IAM rule
+def add_policy(policy_arn, role_name):
+	try:
+		iam_client.attach_role_policy(
+    	PolicyArn=policy_arn,
+    	RoleName=role_name
+		)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('%s policy added to %s' %(policy_arn, role_name))
+
+# Create instance profile (Needed to attach role to an instance)
+def create_instance_profile(instance_profile_name):
+	try:
+		iam_client.create_instance_profile(
+			InstanceProfileName = instance_profile_name
+		)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('Instance profile %s created'%instance_profile_name)
+
+# Add role to instance profile
+def add_role_to_instance_profile(instance_profile_name, role_name):
+	try:
+		iam_client.add_role_to_instance_profile(
+			InstanceProfileName= instance_profile_name,
+			RoleName= role_name
+		)
+	except botocore.exceptions.ClientError as e:
+		print(e)
+	else:
+		print('Role added to instance profile')
+
 # clean up function that terminates the instance and puts the required ec2 values (key pair name, security group ID and AMI id) into a ec2 config file
-def clean_up(instanceID, keypairName, sgID, amiID):
+def clean_up(instanceID, keypairName, sgID, amiID, rolename):
 	try:
 		ec2_resource.instances.filter(InstanceIds=[instanceID]).terminate()
 	except botocore.exceptions.ClientError as e:
@@ -106,7 +152,7 @@ def clean_up(instanceID, keypairName, sgID, amiID):
 	else: 
 		print('Instance %s terminated'%instanceID)
 		#config here 
-		data = {'ec2_information': {'keypair_name': str(keypairName), 'security_group_ID': str(sgID), 'ami_ID' : str(amiID)}}
+		data = {'ec2_information': {'keypair_name': str(keypairName), 'security_group_ID': str(sgID), 'ami_ID' : str(amiID), 'iam_role_name' : str(rolename)}}
 		config_file = open('ec2_config.yml', 'w')
 		yaml.dump(data, config_file)
 		print('ec2_config file created')
@@ -206,7 +252,42 @@ ami_details = {
 
 ami_id = create_ami(**ami_details)
 
-clean_up(instance_id, key_name, security_group_id, ami_id)
+# Creating an IAM role for EC2 to access S3 
+
+# Create a trust permission (giving EC2 to ability to take on the role created)
+ec2_role_access = {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+
+# Defining role details for attaching to later instances 
+role_details = {
+'RoleName':'EC2_S3_Access',
+'AssumeRolePolicyDocument' : json.dumps(ec2_role_access),
+'Description':'Role to give EC2 access to S3',
+'MaxSessionDuration' : 43200}
+
+# Creating the role 
+role_name = create_iam_role(**role_details)
+
+# Adding the S3 full access policy (EC2 can fully access S3)
+add_policy('arn:aws:iam::aws:policy/AmazonS3FullAccess', role_name)
+
+# Create instance profile and add role -> Name of instance profile == same as role name (makes it easier and is how this occurs if done through the console)
+
+create_instance_profile(role_name)
+add_role_to_instance_profile(role_name, role_name)
+
+clean_up(instance_id, key_name, security_group_id, ami_id, role_name)
 
 
 
