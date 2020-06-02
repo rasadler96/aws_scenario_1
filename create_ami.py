@@ -22,6 +22,9 @@ session = boto3.Session(
 ec2_resource = session.resource('ec2', region_name=default_region)
 ec2_client = session.client('ec2', region_name=default_region)
 
+# Creating IAM client for session
+iam_client = session.client('iam')
+
 # Function to create key pair to be used to launch instance - input = key pair name (minus the .pem), output = keypair.pem with correct permissions. 
 def create_keypair(name_of_keypair):
 	key_file = open('%s.pem'%name_of_keypair,'w')
