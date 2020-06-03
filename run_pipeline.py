@@ -74,6 +74,30 @@ def get_public_ip(instance_id):
 		public_DNS = response['Reservations'][0]['Instances'][0]['PublicIpAddress']
 		return public_DNS
 
+def run_pipeline(keypair_name, public_ip, commands):
+	key = paramiko.RSAKey.from_private_key_file('%s.pem'%keypair_name)
+
+	ssh = paramiko.SSHClient()
+
+	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+	
+	ssh.connect(hostname=public_ip, username="ubuntu", pkey=key)
+
+	# executing list of commands within server
+	print("Starting execution")
+	for command in commands:
+		print("Executing command: " + command)
+		stdin , stdout, stderr = ssh.exec_command(command)
+		exit_status = stdout.channel.recv_exit_status()  
+		if exit_status == 0:
+			print(stdout.readlines())
+			print(stderr.readlines())
+		else:
+			print("Error", exit_status)
+			print('Command failed to execute: ' + command)
+
+	ssh.close()
+
 def terminate_instance(instanceID):
 	try:
 		ec2_resource.instances.filter(InstanceIds=[instanceID]).terminate()
@@ -136,44 +160,26 @@ if state == 'available':
     'Delay': 20,
     'MaxAttempts': 100
 }}
+	# waiter to make sure the instance is ok to ssh into 
 	add_waiter('instance_status_ok', **waiter_status_ok)
 
-	key = paramiko.RSAKey.from_private_key_file('%s.pem'%keypair_name)
-
-	ssh = paramiko.SSHClient()
-
-	ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
 	print('SSH into instance')
-	
-	ssh.connect(hostname=public_ip, username="ubuntu", pkey=key)
 
 	# command list
 	commands = [
-		"sudo aws s3 sync s3://giab-fastq-files /home/ubuntu/aws-ec2-pipeline/run-directory",
+		"sudo aws s3 sync s3://giab-fastq-files/run-directory /home/ubuntu/aws-ec2-pipeline/run-directory",
 		"cd aws-ec2-pipeline ; sudo /home/ubuntu/aws-ec2-pipeline/pipeline_env/bin/python aws-pipeline.py --input /home/ubuntu/aws-ec2-pipeline/run-directory/ -j 2 --verbose 5",
 		"aws s3 sync ~/aws-ec2-pipeline/run-directory/ s3://pipeline-output-files/ --exclude='*.fastq.gz'",
 	]
 
-	# executing list of commands within server
-	print("Starting execution")
-	for command in commands:
-		print("Executing command: " + command)
-		stdin , stdout, stderr = ssh.exec_command(command)
-		exit_status = stdout.channel.recv_exit_status()  
-		if exit_status == 0:
-			print(stdout.readlines())
-			print(stderr.readlines())
-		else:
-			print("Error", exit_status)
-			print('Command failed to execute: ' + command)
-
-	ssh.close()
+	# SSH into instance and run the commands
+	run_pipeline(keypair_name, public_ip, commands)
 
 	print('Pipeline run and files transferred to pipeline-output-files S3 bucket')
 
 else:
 	print('There is a problem with the selected AMI - state is "' + str(state) + '"') 
 
+# Terminate the instance as no longer required. 
 terminate_instance(instance_id)
 
