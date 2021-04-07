@@ -4,28 +4,6 @@ import os
 import botocore
 import json
 
-amazon_config = yaml.safe_load(open("config.yml"))
-
-amazon_details = amazon_config['amazon']
- 
-access_key = amazon_details['aws_access_key_id']
-secret_key = amazon_details['aws_secret_access_key']
-default_region = amazon_details['aws_default_region']
-
-# Creating session (configures credentials and default region)
-session = boto3.Session(
-	aws_access_key_id = access_key,
-	aws_secret_access_key = secret_key,
-	region_name = default_region
-)
-
-# Creating ec2 resource and client for session
-ec2_resource = session.resource('ec2', region_name=default_region)
-ec2_client = session.client('ec2', region_name=default_region)
-
-# Creating IAM client for session
-iam_client = session.client('iam')
-
 # Function to create key pair to be used to launch instance - input = key pair name (minus the .pem), output = keypair.pem with correct permissions. 
 def create_keypair(name_of_keypair):
 	key_file = open('%s.pem'%name_of_keypair,'w')
@@ -161,9 +139,33 @@ def clean_up(instanceID, keypairName, sgID, amiID, rolename):
 		yaml.dump(data, config_file)
 		print('ec2_config file created')
 
+
+# Pulling amazon credentials from the config file. 
+amazon_config = yaml.safe_load(open("config.yml"))
+
+amazon_details = amazon_config['amazon']
+ 
+access_key = amazon_details['aws_access_key_id']
+secret_key = amazon_details['aws_secret_access_key']
+default_region = amazon_details['aws_default_region']
+
+# Creating session (configures credentials and default region)
+session = boto3.Session(
+	aws_access_key_id = access_key,
+	aws_secret_access_key = secret_key,
+	region_name = default_region
+)
+
+# Creating ec2 resource and client for session
+ec2_resource = session.resource('ec2', region_name=default_region)
+ec2_client = session.client('ec2', region_name=default_region)
+
+# Creating IAM client for session
+iam_client = session.client('iam')
+
 # Creating AMI to run pipeline 
 
-# Create ec2 kwy pair
+# Create ec2 key pair
 key_name = create_keypair('ec2_key')
 
 # Create EC2 security group
