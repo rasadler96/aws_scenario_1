@@ -205,7 +205,7 @@ instance_details = {'BlockDeviceMappings' : [
     },
 ],
 'ImageId' : 'ami-0eb89db7593b5d434',
-'InstanceType' : 't2.2xlarge',
+'InstanceType' : 'r6g.2xlarge',
 'KeyName' : key_name,
 'MinCount' : 1,
 'MaxCount' : 1,
